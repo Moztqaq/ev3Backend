@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="h2 mb-1">Dashboard</h1>
+        <p class="text-secondary mb-0">Resumen de atención para {{ hoy|date:"d/m/Y" }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-success" href="{% url 'nueva_cita' %}">Nueva cita</a>
+        <a class="btn btn-outline-success" href="{% url 'nueva_mascota' %}">Registrar mascota</a>
+    </div>
+</div>
+
+<section class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h2 class="h5 mb-0">Citas del día</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Hora</th>
+                    <th>Mascota</th>
+                    <th>Tutor</th>
+                    <th>Veterinario</th>
+                    <th>Motivo</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cita in citas_hoy %}
+                    <tr>
+                        <td>{{ cita.hora_inicio|time:"H:i" }}–{{ cita.hora_fin|time:"H:i" }}</td>
+                        <td>{{ cita.mascota }}</td>
+                        <td>{{ cita.mascota.tutor }}</td>
+                        <td>{{ cita.veterinario }}</td>
+                        <td>{{ cita.motivo|truncatewords:12 }}</td>
+                        <td>
+                            {% if cita.estado == 'pendiente' %}
+                                <span class="badge text-bg-warning">Pendiente</span>
+                            {% elif cita.estado == 'realizada' %}
+                                <span class="badge text-bg-success">Realizada</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Cancelada</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-center text-secondary py-4">No hay citas programadas para hoy.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card border-warning shadow-sm">
+    <div class="card-header bg-warning-subtle">
+        <h2 class="h5 mb-0">Alertas Preventivas</h2>
+        <p class="small mb-0 mt-1">Vacunas y controles vencidos o próximos a vencer en los siguientes 7 días.</p>
+    </div>
+    <div class="card-body">
+        {% for alerta in alertas %}
+            <div class="alert {% if alerta.fecha_proximo_control < hoy %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between gap-2 mb-2">
+                <div>
+                    <strong>{{ alerta.nombre_procedimiento }}</strong>
+                    <span class="text-muted">({{ alerta.get_tipo_display }})</span>
+                    — {{ alerta.mascota }}
+                </div>
+                <div>
+                    {% if alerta.fecha_proximo_control < hoy %}
+                        <span class="badge text-bg-danger">Vencido</span>
+                    {% else %}
+                        <span class="badge text-bg-warning">Próximo</span>
+                    {% endif %}
+                    {{ alerta.fecha_proximo_control|date:"d/m/Y" }}
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-secondary mb-0">No hay vacunas o controles vencidos ni próximos a vencer.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
