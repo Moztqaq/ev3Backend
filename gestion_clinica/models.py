@@ -5,6 +5,13 @@ from django.utils import timezone
 
 
 class Tutor(models.Model):
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='perfil_tutor',
+    )
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     rut = models.CharField(max_length=12, unique=True)

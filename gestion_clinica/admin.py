@@ -15,7 +15,7 @@ class VacunaControlInline(admin.TabularInline):
 
 @admin.register(Tutor)
 class TutorAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'apellido', 'rut', 'telefono', 'correo', 'fecha_registro')
+    list_display = ('nombre', 'apellido', 'rut', 'telefono', 'correo', 'usuario', 'fecha_registro')
     list_filter = ('fecha_registro',)
     search_fields = ('nombre', 'apellido', 'rut', 'telefono', 'correo')
     inlines = (MascotaInline,)

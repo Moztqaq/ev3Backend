@@ -1,11 +1,14 @@
 from datetime import date, time, timedelta
+from io import StringIO
 
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Cita, Mascota, Tutor, VacunaControl, Veterinario
+from .models import Cita, FichaMedica, Mascota, Tutor, VacunaControl, Veterinario
 from .serializers import CitaSerializer
 
 
@@ -104,6 +107,12 @@ class AlertasPendientesTests(TestCase):
             peso_kg='10.00',
         )
         self.client = APIClient()
+        self.user = get_user_model().objects.create_superuser(
+            username='clinic-admin',
+            email='admin@example.com',
+            password='Test-password-123!',
+        )
+        self.client.force_authenticate(self.user)
 
     def test_returns_controls_due_today_through_seven_days(self):
         hoy = timezone.localdate()
@@ -124,6 +133,11 @@ class AlertasPendientesTests(TestCase):
             {item['nombre_procedimiento'] for item in response.data},
             {'Control 1', 'Control 2'},
         )
+
+    def test_api_does_not_expose_reminders_to_anonymous_visitors(self):
+        response = APIClient().get(reverse('vacunacontrol-alertas-pendientes'))
+
+        self.assertEqual(response.status_code, 403)
 
 
 class PetCareTemplateViewsTests(TestCase):
@@ -152,6 +166,12 @@ class PetCareTemplateViewsTests(TestCase):
             licencia_medica='LIC-002',
             especialidad='General',
         )
+        self.staff = get_user_model().objects.create_superuser(
+            username='clinic-staff',
+            email='staff@example.com',
+            password='Test-password-123!',
+        )
+        self.client.force_login(self.staff)
 
     def test_dashboard_renders_daily_appointments_and_alerts(self):
         hoy = timezone.localdate()
@@ -205,9 +225,163 @@ class PetCareTemplateViewsTests(TestCase):
         self.assertRedirects(cita_response, reverse('citas'))
         self.assertTrue(Cita.objects.filter(motivo='Vacunación').exists())
 
+    def test_staff_can_register_and_edit_veterinarians(self):
+        response = self.client.post(reverse('registro_nuevo', args=['veterinarios']), {
+            'nombre': 'Daniela',
+            'apellido': 'Pérez',
+            'rut': '12345678-9',
+            'licencia_medica': 'LIC-CLINIC-01',
+            'especialidad': 'Medicina general',
+        })
+
+        self.assertRedirects(response, reverse('veterinarios'))
+        veterinario = Veterinario.objects.get(rut='12345678-9')
+        self.assertEqual(veterinario.nombre, 'Daniela')
+        self.assertContains(self.client.get(reverse('veterinarios')), 'Daniela')
+
+        response = self.client.post(
+            reverse('registro_editar', args=['veterinarios', veterinario.pk]),
+            {
+                'nombre': 'Daniela',
+                'apellido': 'Pérez',
+                'rut': '12345678-9',
+                'licencia_medica': 'LIC-CLINIC-01',
+                'especialidad': 'Cirugía veterinaria',
+            },
+        )
+        self.assertRedirects(response, reverse('veterinarios'))
+        veterinario.refresh_from_db()
+        self.assertEqual(veterinario.especialidad, 'Cirugía veterinaria')
+
+    def test_demo_veterinarian_command_creates_five_profiles_idempotently(self):
+        output = StringIO()
+
+        call_command('seed_demo_veterinarios', stdout=output)
+        call_command('seed_demo_veterinarios', stdout=output)
+
+        self.assertEqual(Veterinario.objects.count(), 6)
+        self.assertEqual(
+            set(Veterinario.objects.exclude(pk=self.veterinario.pk).values_list('nombre', flat=True)),
+            {'Nicolás', 'Matías', 'Sebastián', 'Camila', 'Valentina'},
+        )
+        self.assertIn('Perfiles demo creados: 0; ya existentes: 5.', output.getvalue())
+
     def test_navigation_list_pages_render(self):
-        for route_name in ('tutores', 'mascotas', 'citas', 'fichas', 'recordatorios'):
+        for route_name in (
+            'tutores',
+            'veterinarios',
+            'mascotas',
+            'citas',
+            'fichas',
+            'recordatorios',
+        ):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name))
                 self.assertEqual(response.status_code, 200)
                 self.assertTemplateUsed(response, 'gestion_clinica/listado.html')
+        veterinarios = self.client.get(reverse('veterinarios'))
+        self.assertContains(veterinarios, 'Especialidad')
+        self.assertContains(veterinarios, 'Nuevo registro')
+        reminders = self.client.get(reverse('recordatorios'))
+        self.assertContains(reminders, 'Tipo')
+        self.assertContains(reminders, 'Fecha de aplicación')
+        self.assertContains(reminders, 'Próximo control')
+        self.assertNotContains(reminders, 'Get Tipo Display')
+
+    def test_anonymous_users_are_redirected_from_clinical_data(self):
+        response = self.client_class().get(reverse('dashboard'))
+
+        self.assertRedirects(response, f'{reverse("login")}?next={reverse("dashboard")}')
+
+    def test_staff_visiting_login_is_sent_to_the_dashboard(self):
+        response = self.client.get(reverse('login'))
+
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_tutor_portal_only_shows_the_linked_tutors_pets(self):
+        tutor_user = get_user_model().objects.create_user(
+            username='tutor-ana',
+            password='Test-password-123!',
+        )
+        self.tutor.usuario = tutor_user
+        self.tutor.save(update_fields=['usuario'])
+        self.client.force_login(tutor_user)
+
+        response = self.client.get(reverse('portal_tutor'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.mascota.nombre)
+        self.assertEqual(response.context['mascotas'].count(), 1)
+
+        private_pet = self.client.get(reverse('detalle_mascota', args=[self.mascota.pk]))
+        self.assertEqual(private_pet.status_code, 200)
+
+    def test_tutor_cannot_open_another_tutors_pet(self):
+        tutor_user = get_user_model().objects.create_user(
+            username='tutor-otra',
+            password='Test-password-123!',
+        )
+        self.client.force_login(tutor_user)
+
+        response = self.client.get(reverse('detalle_mascota', args=[self.mascota.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_calendar_and_printable_medical_summary_render(self):
+        response = self.client.get(reverse('calendario'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Calendario de citas')
+
+        FichaMedica.objects.create(
+            mascota=self.mascota,
+            veterinario=self.veterinario,
+            fecha_atencion=timezone.now(),
+            motivo_consulta='Control anual',
+            diagnostico='Buen estado general',
+            tratamiento='Control preventivo',
+        )
+        print_response = self.client.get(
+            reverse('imprimir_historial', args=[self.mascota.pk]),
+        )
+        self.assertEqual(print_response.status_code, 200)
+        self.assertContains(print_response, 'Guardar como PDF')
+        self.assertContains(print_response, 'Buen estado general')
+
+    def test_staff_can_search_and_edit_records(self):
+        response = self.client.get(reverse('mascotas'), {'q': self.mascota.nombre})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.mascota.nombre)
+
+        response = self.client.post(
+            reverse('registro_editar', args=['mascotas', self.mascota.pk]),
+            {
+                'tutor': self.tutor.pk,
+                'nombre': 'Luna actualizada',
+                'especie': Mascota.Especie.CANINO,
+                'raza': 'Mestiza',
+                'sexo': Mascota.Sexo.HEMBRA,
+                'fecha_nacimiento': '2020-01-01',
+                'peso_kg': '11.00',
+            },
+        )
+        self.assertRedirects(response, reverse('mascotas'))
+        self.mascota.refresh_from_db()
+        self.assertEqual(self.mascota.nombre, 'Luna actualizada')
+
+    @override_settings(EMAIL_CONFIGURED=False)
+    def test_reminder_email_is_not_sent_without_smtp_configuration(self):
+        recordatorio = VacunaControl.objects.create(
+            mascota=self.mascota,
+            tipo=VacunaControl.Tipo.CONTROL,
+            nombre_procedimiento='Control anual',
+            fecha_aplicacion=timezone.localdate(),
+            fecha_proximo_control=timezone.localdate() + timedelta(days=7),
+        )
+
+        response = self.client.post(
+            reverse('enviar_recordatorio', args=[recordatorio.pk]),
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No se envió el correo')

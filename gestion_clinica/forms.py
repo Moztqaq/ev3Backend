@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Cita, FichaMedica, Mascota, Tutor
+from .models import Cita, FichaMedica, Mascota, Tutor, VacunaControl, Veterinario
 
 
 class BootstrapModelForm(forms.ModelForm):
@@ -14,7 +14,7 @@ class BootstrapModelForm(forms.ModelForm):
 class TutorForm(BootstrapModelForm):
     class Meta:
         model = Tutor
-        fields = '__all__'
+        fields = ('usuario', 'nombre', 'apellido', 'rut', 'telefono', 'correo', 'direccion')
 
 
 class MascotaForm(BootstrapModelForm):
@@ -33,3 +33,15 @@ class FichaMedicaForm(BootstrapModelForm):
     class Meta:
         model = FichaMedica
         fields = '__all__'
+
+
+class VacunaControlForm(BootstrapModelForm):
+    class Meta:
+        model = VacunaControl
+        fields = '__all__'
+
+
+class VeterinarioForm(BootstrapModelForm):
+    class Meta:
+        model = Veterinario
+        fields = ('nombre', 'apellido', 'rut', 'licencia_medica', 'especialidad')

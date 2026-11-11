@@ -1,98 +1,126 @@
-# PetCare - Sistema de Gestión de Citas y Fichas Médicas para Veterinaria
+# PetCare
 
-## Descripción
+Sistema de gestión para una clínica veterinaria: tutores, mascotas, agenda,
+fichas clínicas y controles preventivos.
 
-PetCare es una aplicación web para apoyar la gestión diaria de una clínica veterinaria. Centraliza la información de tutores y mascotas, permite registrar citas y fichas médicas, y mantiene controles preventivos de vacunas y desparasitación.
+## Funcionalidades
 
-El proyecto incluye:
+- Panel de atención con indicadores, citas del día y alertas preventivas.
+- Búsqueda, filtros y paginación en las listas; alta y edición de registros.
+- Administración de veterinarios desde la sección **Veterinarios**.
+- Calendario mensual de citas.
+- Historial por mascota y resumen imprimible que se puede guardar como PDF desde
+  el navegador.
+- Acceso de personal con cuenta de Django y portal de tutor limitado a las
+  mascotas vinculadas a esa cuenta.
+- API REST protegida para usuarios administradores/personal autorizado.
+- Envío manual de recordatorios por correo cuando SMTP esté configurado.
 
-- Modelos para tutores, mascotas, veterinarios, citas, fichas médicas y vacunas/controles.
-- Validación de horarios para impedir el solapamiento de citas de un veterinario.
-- Administración de datos mediante Django Admin.
-- API REST con Django REST Framework para operaciones CRUD y alertas de controles próximos.
-- Interfaz web con Django Templates y Bootstrap 5, con dashboard de citas y alertas.
+WhatsApp no está conectado: requiere elegir proveedor, aportar credenciales y
+configurar consentimiento y plantillas aprobadas. No se simulan envíos.
 
-## Requisitos y stack tecnológico
+## Ejecución local
 
-- Python 3.10 o superior.
-- Django 6.1.
-- Django REST Framework 3.18.
-- PostgreSQL como motor previsto para despliegue.
-- AWS EC2 para alojar la aplicación.
-- Bootstrap 5 mediante CDN.
-
-> **Configuración local:** actualmente `petcare_core/settings.py` usa SQLite para facilitar el desarrollo local. `psycopg2-binary` está incluido en `requirements.txt` para el uso de PostgreSQL, pero antes de desplegar en EC2 se deben configurar las credenciales y el motor de base de datos de forma segura, preferentemente mediante variables de entorno.
-
-## Instalación y ejecución local
-
-Abre PowerShell en la carpeta donde quieras guardar el proyecto y sigue estos pasos.
-
-### 1. Clonar el repositorio
-
-Reemplaza la URL de ejemplo por la URL real del repositorio:
-
-```powershell
-git clone <URL_DEL_REPOSITORIO>
-cd ev3Backend
-```
-
-### 2. Crear y activar el entorno virtual
+Requiere Python 3.12 o superior. En PowerShell:
 
 ```powershell
 py -m venv env
 .\env\Scripts\Activate.ps1
-```
-
-Si PowerShell impide la activación por la política de ejecución, permite scripts para el usuario actual o ejecuta los comandos usando directamente `.\env\Scripts\python.exe`.
-
-### 3. Instalar dependencias
-
-```powershell
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-```
-
-### 4. Aplicar migraciones
-
-```powershell
+Copy-Item .env.example .env
 python manage.py migrate
-```
-
-### 5. (Opcional) Crear un usuario administrador
-
-```powershell
 python manage.py createsuperuser
-```
-
-### 6. Iniciar el servidor de desarrollo
-
-```powershell
 python manage.py runserver
 ```
 
-Visita <http://127.0.0.1:8000/> para el dashboard, <http://127.0.0.1:8000/admin/> para Django Admin y <http://127.0.0.1:8000/api/> para la API REST.
+Abre <http://127.0.0.1:8000/> e inicia sesión con la cuenta del personal. Para
+la configuración local, `.env.example` activa el modo de desarrollo. Revisa y
+mantén `.env` fuera del control de versiones; nunca pongas credenciales reales
+en `.env.example`.
 
-## Rutas principales
+### Vincular una cuenta del portal
 
-| Ruta | Descripción |
+1. Inicia sesión con una cuenta `is_staff` y abre `/admin/`.
+2. Crea una cuenta de usuario para el tutor; déjala sin permisos de personal ni
+   superusuario.
+3. En el registro del tutor, asigna esa cuenta en el campo **Usuario**.
+4. Entrega al tutor sus credenciales por un canal seguro.
+
+Las cuentas nuevas no se vinculan automáticamente por correo o RUT. Esto evita
+que alguien reclame datos clínicos de otra persona sin verificación por parte
+de la clínica.
+
+### Perfiles de veterinarios de demostración
+
+Para poblar una base local con cinco perfiles ficticios (tres hombres y dos
+mujeres), ejecuta:
+
+```powershell
+python manage.py seed_demo_veterinarios
+```
+
+El comando es idempotente y no reemplaza registros existentes. Sus RUT y
+licencias llevan el prefijo `DEMO`; no representan profesionales reales y no
+deben usarse para operación clínica.
+
+## Configuración
+
+Las opciones se leen desde variables de entorno o `.env`; la base local por
+defecto es SQLite.
+
+- `DJANGO_SECRET_KEY`: clave aleatoria privada, obligatoria para cualquier
+  despliegue real.
+- `DJANGO_DEBUG`: déjalo en `False` en producción.
+- `DJANGO_ALLOWED_HOSTS`: nombres de dominio/IP que servirán la aplicación.
+- `DJANGO_CSRF_TRUSTED_ORIGINS`: orígenes HTTPS de la aplicación cuando aplique.
+- `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` y
+  `DB_SSLMODE`: conexión de PostgreSQL para producción.
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
+  `EMAIL_USE_TLS` y `DEFAULT_FROM_EMAIL`: SMTP. Sin `EMAIL_HOST`, la acción de
+  envío se bloquea y muestra que falta configuración.
+- `DJANGO_SECURE_SSL_REDIRECT` y `DJANGO_SECURE_COOKIES`: actívalos detrás de
+  HTTPS una vez que el proxy/servidor esté correctamente configurado.
+- `DJANGO_SECURE_HSTS_SECONDS`: usa un valor de HSTS solo después de comprobar
+  que todo el dominio sirve HTTPS correctamente.
+
+El correo se envía manualmente desde la lista de recordatorios; no hay una tarea
+programada ni mensajes de WhatsApp. Primero prueba SMTP con un buzón controlado.
+
+## Despliegue
+
+El servidor `runserver` es solo para desarrollo. Antes de publicar:
+
+1. Usa PostgreSQL y un proveedor de despliegue/servidor WSGI apropiado.
+2. Configura secretos y contraseñas en el gestor de secretos del proveedor, no
+   en el repositorio ni en el navegador.
+3. Configura HTTPS, hosts/orígenes, cookies seguras y archivos estáticos.
+4. Ejecuta `python manage.py migrate` y `python manage.py collectstatic`.
+5. Ejecuta `python manage.py check --deploy` y corrige todos los avisos.
+6. Programa y prueba respaldos cifrados de la base de datos, y el procedimiento
+   de restauración.
+7. Define políticas de conservación, consentimiento y acceso para datos
+   personales y médicos según la normativa aplicable.
+
+Esta configuración no publica la aplicación ni reemplaza una revisión de
+seguridad y privacidad previa a producción.
+
+## Rutas
+
+| Ruta | Uso |
 |---|---|
-| `/` | Dashboard con citas del día y alertas preventivas |
-| `/tutores/` | Listado de tutores |
-| `/mascotas/` | Listado y registro de mascotas |
-| `/citas/` | Listado y registro de citas |
-| `/fichas/` | Fichas médicas |
-| `/recordatorios/` | Vacunas y controles |
-| `/api/` | API REST |
-| `/api-auth/` | Login/logout navegable de Django REST Framework |
+| `/` | Panel del personal |
+| `/cuentas/iniciar-sesion/` | Inicio de sesión |
+| `/mi-cuenta/` | Portal de tutores vinculados |
+| `/tutores/`, `/veterinarios/`, `/mascotas/`, `/citas/` | Gestión de registros |
+| `/calendario/` | Agenda mensual |
+| `/fichas/`, `/recordatorios/` | Historiales y controles |
+| `/api/` | API REST restringida |
 | `/admin/` | Administración de Django |
 
-## Despliegue en AWS EC2
+## Validación
 
-Para publicar el sistema, prepara una instancia EC2, instala una versión compatible de Python y PostgreSQL (local o como servicio administrado), configura las variables sensibles fuera del repositorio, aplica las migraciones y despliega la aplicación usando un servidor WSGI/ASGI y un servidor web apropiados. No utilices `runserver` como servidor de producción.
-
-### IP Pública de AWS EC2
-
-> **IP pública funcional:** `PENDIENTE DE ASIGNAR`
->
-> Reemplaza este texto por la IP pública asignada a la instancia EC2 y confirma que la aplicación sea accesible desde ella. No se proporcionó una IP ni se verificó un despliegue en EC2 al preparar este README.
-
+```powershell
+python manage.py check
+python manage.py test gestion_clinica
+python manage.py check --deploy
+```

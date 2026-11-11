@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario de citas{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div><p class="eyebrow mb-2">AGENDA CLÍNICA</p><h1 class="h2 mb-0">Calendario de citas</h1></div>
+    <a class="btn btn-success" href="{% url 'nueva_cita' %}">Nueva cita</a>
+</div>
+<section class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <a class="btn btn-sm btn-outline-secondary" href="?mes={{ anterior.month }}&anio={{ anterior.year }}" aria-label="Mes anterior">‹ Anterior</a>
+        <h2 class="h5 mb-0">{{ mes_nombre }} {{ anio }}</h2>
+        <a class="btn btn-sm btn-outline-secondary" href="?mes={{ siguiente.month }}&anio={{ siguiente.year }}" aria-label="Mes siguiente">Siguiente ›</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table calendar-table align-middle mb-0">
+            <thead><tr>{% for dia in dias_semana %}<th scope="col">{{ dia }}</th>{% endfor %}</tr></thead>
+            <tbody>
+                {% for semana in semanas %}
+                    <tr>{% for celda in semana %}
+                        <td class="{% if celda.dia == hoy.day and mes_actual %}calendar-today{% endif %}">
+                            {% if celda.dia %}
+                                <span class="calendar-day">{{ celda.dia }}</span>
+                                {% for cita in celda.citas %}
+                                    <a class="calendar-appointment" href="{% url 'detalle_mascota' cita.mascota_id %}">
+                                        {{ cita.hora_inicio|time:"H:i" }} · {{ cita.mascota.nombre }}<br>
+                                        <span>{{ cita.get_estado_display }}</span>
+                                    </a>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                    {% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

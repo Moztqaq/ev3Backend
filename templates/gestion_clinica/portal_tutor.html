@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Mis mascotas{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="eyebrow mb-2">PORTAL DEL TUTOR</p>
+    <h1 class="h2 mb-1">Hola, {{ tutor.nombre }}</h1>
+    <p class="text-secondary mb-0">Consulta la información de tus mascotas y su historial en la clínica.</p>
+</div>
+<div class="row g-3">
+    {% for mascota in mascotas %}
+        <div class="col-md-6 col-xl-4">
+            <article class="card shadow-sm h-100">
+                <div class="card-body">
+                    <span class="pet-avatar mb-3" aria-hidden="true">{{ mascota.nombre|first|upper }}</span>
+                    <h2 class="h5 mb-1">{{ mascota.nombre }}</h2>
+                    <p class="text-secondary mb-3">{{ mascota.get_especie_display }}{% if mascota.raza %} · {{ mascota.raza }}{% endif %}</p>
+                    <a class="btn btn-outline-success btn-sm" href="{% url 'detalle_mascota' mascota.pk %}">Ver historial y citas</a>
+                </div>
+            </article>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="empty-state">
+                <h2 class="h5">Todavía no hay mascotas vinculadas</h2>
+                <p class="text-secondary mb-0">Contacta a la clínica para asociar tus mascotas a tu perfil.</p>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

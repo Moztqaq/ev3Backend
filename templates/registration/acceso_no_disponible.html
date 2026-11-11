@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Acceso no disponible{% endblock %}
+
+{% block content %}
+<section class="card shadow-sm mx-auto text-center" style="max-width: 38rem">
+    <div class="card-body p-5">
+        <p class="eyebrow mb-2">ACCESO SEGURO</p>
+        <h1 class="h3">Tu cuenta aún no está vinculada</h1>
+        <p class="text-secondary mb-4">Pide al personal de la clínica que vincule tu cuenta con tu perfil de tutor.</p>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-success" type="submit">Cerrar sesión</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
