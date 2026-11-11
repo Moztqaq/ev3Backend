@@ -37,6 +37,8 @@ ALLOWED_HOSTS = [
     for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',')
     if host.strip()
 ]
+ALLOWED_HOSTS = ['54.225.98.142', 'localhost', '127.0.0.1']
+
 
 
 # Application definition
@@ -97,6 +99,12 @@ DATABASES = {
             {'sslmode': os.environ['DB_SSLMODE']}
             if os.environ.get('DB_SSLMODE') else {}
         ),
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'petcare_db',
+        'USER': 'ignacio',
+        'PASSWORD': '123',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -179,3 +187,4 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
